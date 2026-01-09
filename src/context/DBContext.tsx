@@ -179,8 +179,13 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     if (loggedUser?.role === 'master') {
       const loadAllProfiles = async () => {
-        const { data, error } = await supabase.from('profiles').select('*');
-        if (data && !error) {
+        const { data, error } = await supabase.from('profiles').select('*').order('name');
+        if (error) {
+          console.error("DBContext: Error loading profiles:", error.message);
+          return;
+        }
+        if (data) {
+          console.log("DBContext: Profiles loaded successfully:", data.length);
           const mappedUsers: User[] = data.map(p => ({
             id: p.id,
             user: p.id, // Fallback identifier
@@ -432,34 +437,22 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       console.log("Criando usuário via RPC (SQL Direto) para:", cleanEmail);
 
-      // Wrapper com timeout para garantir que o loading pare
-      const rpcWithTimeout = (promise: any, ms: number) => {
-        return new Promise((resolve, reject) => {
-          const timer = setTimeout(() => reject(new Error("RPC Timeout: O banco de dados demorou para responder.")), ms);
-          promise.then(
-            (res) => { clearTimeout(timer); resolve(res); },
-            (err) => { clearTimeout(timer); reject(err); }
-          );
-        });
-      };
-
-      const { data, error } = await rpcWithTimeout(
-        supabase.rpc('create_user_admin', {
-          email: cleanEmail,
-          password: cleanPass,
-          user_metadata: {
-            name: u.name?.trim(),
-            role: u.role,
-            generation: u.generation
-          }
-        }),
-        30000 // 30s timeout
-      ) as any;
+      const { data, error } = await supabase.rpc('create_user_admin', {
+        email: cleanEmail,
+        password: cleanPass,
+        user_metadata: {
+          name: u.name?.trim(),
+          role: u.role,
+          generation: u.generation
+        }
+      }) as any;
 
       console.log("RPC Response:", { data, error });
 
       if (error) {
-        notify('error', 'Erro ao criar usuário', error.message);
+        // Se o erro for "User already exists", ainda queremos dar o aviso correto
+        const msg = error.message === 'User already exists' ? 'Este e-mail já está cadastrado.' : error.message;
+        notify('error', 'Erro ao criar usuário', msg);
         return false;
       }
 
