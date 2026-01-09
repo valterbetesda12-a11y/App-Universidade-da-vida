@@ -433,7 +433,7 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       console.log("Criando usuário via RPC (SQL Direto) para:", cleanEmail);
 
       // Wrapper com timeout para garantir que o loading pare
-      const rpcWithTimeout = (promise: Promise<any>, ms: number) => {
+      const rpcWithTimeout = (promise: any, ms: number) => {
         return new Promise((resolve, reject) => {
           const timer = setTimeout(() => reject(new Error("RPC Timeout: O banco de dados demorou para responder.")), ms);
           promise.then(
@@ -466,7 +466,7 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const newUser: User = {
         id: data.id,
         user: data.email,
-        name: u.name || data.user.email,
+        name: u.name || data.email,
         role: u.role as any || 'comum',
         generation: u.generation || null,
         active: true,
