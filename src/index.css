@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+
+  /* Adaptive Theme Variables (Defaults) */
+  --text-main: #ffffff;
+  --text-dim: #cbd5e1;
+  --text-muted: #94a3b8;
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --input-bg: rgba(0, 0, 0, 0.2);
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --header-glass: rgba(15, 23, 42, 0.8);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
