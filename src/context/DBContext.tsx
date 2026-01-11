@@ -285,45 +285,64 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
     // DIRECT SYNC: Fetch from Google Sheets and save to Supabase directly in browser
     try {
+      console.log("=== INÍCIO DA SINCRONIZAÇÃO ===");
       console.log("DBContext: Sincronizando diretamente do Google Sheets...");
 
       // Get the published CSV URL from the edit URL
       const sheetUrl = db.config.sheetUrl;
       let csvUrl = sheetUrl;
 
+      console.log("DBContext: Sheet URL from config:", sheetUrl);
+
       // If it's an edit URL, we need the published CSV URL from app_config
       if (sheetUrl.includes('/edit')) {
-        const { data: configData } = await supabase
+        console.log("DBContext: Edit URL detected, fetching published CSV URL from app_config...");
+        const { data: configData, error: configError } = await supabase
           .from('app_config')
           .select('config')
           .eq('id', 'global')
           .single();
 
+        if (configError) {
+          console.error("DBContext: Error fetching app_config:", configError);
+          throw new Error(`Erro ao buscar configuração: ${configError.message}`);
+        }
+
         csvUrl = configData?.config?.sheetUrl || sheetUrl;
+        console.log("DBContext: Published CSV URL from app_config:", csvUrl);
       }
 
       console.log("DBContext: Fetching CSV from:", csvUrl);
 
       // Fetch CSV
       const response = await fetch(csvUrl);
+      console.log("DBContext: Fetch response status:", response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Planilha não acessível`);
+        throw new Error(`HTTP ${response.status}: Planilha não acessível. Verifique se está publicada.`);
       }
 
       const csvText = await response.text();
+      console.log("DBContext: CSV length:", csvText.length, "characters");
+      console.log("DBContext: First 200 chars:", csvText.substring(0, 200));
 
       // Check if it's actually CSV
       if (csvText.includes('<!DOCTYPE') || csvText.includes('<html')) {
-        throw new Error('Planilha não está publicada como CSV');
+        console.error("DBContext: Response is HTML, not CSV!");
+        throw new Error('Planilha não está publicada como CSV. Vá em Arquivo > Compartilhar > Publicar na web e escolha CSV.');
       }
 
       // Parse CSV
       const lines = csvText.split(/\r?\n/).filter(l => l.trim());
+      console.log("DBContext: Total lines (including header):", lines.length);
+
       if (lines.length === 0) {
         throw new Error('Planilha vazia');
       }
 
       const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      console.log("DBContext: Headers:", headers);
+
       const data: any[] = [];
 
       for (let i = 1; i < lines.length; i++) {
@@ -335,7 +354,8 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         data.push(row);
       }
 
-      console.log(`DBContext: Parsed ${data.length} rows`);
+      console.log(`DBContext: Parsed ${data.length} data rows`);
+      console.log("DBContext: First row sample:", data[0]);
 
       // Find ID column
       const idColumn = headers.find(h =>
@@ -348,9 +368,14 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       // Save to Supabase
       let synced = 0;
+      let errors = 0;
+
       for (const row of data) {
         const externalId = String(row[idColumn] || '').trim();
-        if (!externalId) continue;
+        if (!externalId) {
+          console.warn("DBContext: Skipping row with empty ID:", row);
+          continue;
+        }
 
         const { error } = await supabase
           .from('inscriptions')
@@ -362,19 +387,32 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             onConflict: 'external_id'
           });
 
-        if (!error) synced++;
+        if (error) {
+          console.error(`DBContext: Error upserting row ${externalId}:`, error);
+          errors++;
+        } else {
+          synced++;
+        }
       }
 
-      console.log(`DBContext: Synced ${synced} records to Supabase`);
-      notify('success', 'Sincronização Concluída', `${synced} registros atualizados`);
+      console.log(`DBContext: Sync complete - ${synced} synced, ${errors} errors`);
+      console.log("=== FIM DA SINCRONIZAÇÃO ===");
 
-      // Reload from Supabase
-      await loadInscriptionsFromSupabase();
+      if (synced > 0) {
+        notify('success', 'Sincronização Concluída', `${synced} registros atualizados`);
+        // Reload from Supabase
+        await loadInscriptionsFromSupabase();
+      } else {
+        notify('warning', 'Nenhum registro sincronizado', `${errors} erros encontrados. Veja o console (F12).`);
+      }
+
       setLoading(false);
       return;
 
     } catch (e: any) {
+      console.error("=== ERRO NA SINCRONIZAÇÃO ===");
       console.error("DBContext: Direct sync failed:", e);
+      console.error("Error stack:", e.stack);
       notify('error', 'Erro na sincronização', e.message);
       setLoading(false);
     }
