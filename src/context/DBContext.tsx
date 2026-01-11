@@ -270,18 +270,22 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       }
 
       const inscriptionsData = (data || []).map((row: any) => row.data);
-      console.log(`DBContext: Loaded ${inscriptionsData.length} inscriptions from Supabase`);
+      console.log(`%c [V1.3.1] DBContext: Loaded ${inscriptionsData.length} inscriptions from Supabase `, "background: #2563eb; color: white; padding: 2px; font-weight: bold;");
 
-      // Extract headers from the first record if db.headers is empty
+      // FORCE HEADERS if missing or if data exists but headers are empty
       if (inscriptionsData.length > 0) {
         const firstRecord = inscriptionsData[0];
         const extractedHeaders = Object.keys(firstRecord);
-        console.log("DBContext: Extracted headers from Supabase:", extractedHeaders);
 
-        setDb(prev => ({
-          ...prev,
-          headers: (prev.headers && prev.headers.length > 0) ? prev.headers : extractedHeaders
-        }));
+        setDb(prev => {
+          // If headers are empty or very different, update them
+          const currentHeaders = prev.headers || [];
+          if (currentHeaders.length === 0 || !currentHeaders.includes(extractedHeaders[0])) {
+            console.log("DBContext: Forcing header update from data:", extractedHeaders);
+            return { ...prev, headers: extractedHeaders };
+          }
+          return prev;
+        });
       }
 
       setInscriptions(inscriptionsData);
