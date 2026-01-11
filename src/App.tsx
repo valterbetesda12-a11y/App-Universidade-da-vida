@@ -24,11 +24,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     // VISUAL CONFIRMATION OF DEPLOYMENT
-    console.log("!!! VERSÃO 1.2.0 ATIVA - CACHE LIMPADO !!!");
-    if (window.location.hostname !== 'localhost') {
-      // Small visual indicator instead of intrusive alert? No, alert is better for debugging cache
-      // alert("SISTEMA NEXUS ATUALIZADO (1.2.0)"); 
-    }
+    console.log("%c !!! SISTEMA NEXUS ATUALIZADO V1.2.1 - CACHE LIMPADO !!! ", "background: #22c55e; color: white; font-weight: bold; padding: 4px; border-radius: 4px;");
   }, []);
   const [currentView, setCurrentView] = useState<ViewState>('inscricoes');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
