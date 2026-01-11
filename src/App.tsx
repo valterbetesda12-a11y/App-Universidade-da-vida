@@ -66,8 +66,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (loggedUser) {
       setCurrentView('inscricoes');
-      // Load data from Supabase on login
-      loadInscriptionsFromSupabase();
     }
   }, [loggedUser]);
 

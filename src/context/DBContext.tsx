@@ -176,30 +176,36 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     };
   }, []);
 
-  // Sync users list for Master page
+  // Sync users list and LOAD INSCRIPTIONS
   useEffect(() => {
-    if (loggedUser?.role === 'master') {
-      const loadAllProfiles = async () => {
-        const { data, error } = await supabase.from('profiles').select('*').order('name');
-        if (error) {
-          console.error("DBContext: Error loading profiles:", error.message);
-          return;
-        }
-        if (data) {
-          console.log("DBContext: Profiles loaded successfully:", data.length);
-          const mappedUsers: User[] = data.map(p => ({
-            id: p.id,
-            user: p.id, // Fallback identifier
-            name: p.name || 'Sem nome',
-            role: p.role as any,
-            generation: p.generation,
-            active: p.active,
-            pass: '********'
-          }));
-          setDb(prev => ({ ...prev, users: mappedUsers }));
-        }
-      };
-      loadAllProfiles();
+    if (loggedUser) {
+      // 1. Load inscriptions for all users
+      loadInscriptionsFromSupabase();
+
+      // 2. Load profiles if Master
+      if (loggedUser.role === 'master') {
+        const loadAllProfiles = async () => {
+          const { data, error } = await supabase.from('profiles').select('*').order('name');
+          if (error) {
+            console.error("DBContext: Error loading profiles:", error.message);
+            return;
+          }
+          if (data) {
+            console.log("DBContext: Profiles loaded successfully:", data.length);
+            const mappedUsers: User[] = data.map(p => ({
+              id: p.id,
+              user: p.id,
+              name: p.name || 'Sem nome',
+              role: p.role as any,
+              generation: p.generation,
+              active: p.active,
+              pass: '********'
+            }));
+            setDb(prev => ({ ...prev, users: mappedUsers }));
+          }
+        };
+        loadAllProfiles();
+      }
     }
   }, [loggedUser]);
 
