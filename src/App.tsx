@@ -66,10 +66,11 @@ const App: React.FC = () => {
   useEffect(() => {
     if (loggedUser) {
       setCurrentView('inscricoes');
-      // NEW: Load data from Supabase instead of forcing sync
-      if (inscriptions.length === 0 && !loading) {
-        loadInscriptionsFromSupabase();
-      }
+      // DISABLED: Auto-load causes infinite loading if sync fails
+      // User can manually click "Sincronizar" button instead
+      // if (inscriptions.length === 0 && !loading) {
+      //   loadInscriptionsFromSupabase();
+      // }
     }
   }, [loggedUser]);
 
