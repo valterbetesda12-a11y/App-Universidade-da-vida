@@ -366,32 +366,45 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       console.log(`DBContext: Using "${idColumn}" as external_id`);
 
-      // Save to Supabase
-      let synced = 0;
-      let errors = 0;
-
-      for (const row of data) {
-        const externalId = String(row[idColumn] || '').trim();
-        if (!externalId) {
-          console.warn("DBContext: Skipping row with empty ID:", row);
-          continue;
-        }
-
-        const { error } = await supabase
-          .from('inscriptions')
-          .upsert({
+      // Prepare data for batch upsert
+      const recordsToUpsert = data
+        .map(row => {
+          const externalId = String(row[idColumn] || '').trim();
+          if (!externalId) {
+            console.warn("DBContext: Skipping row with empty ID:", row);
+            return null;
+          }
+          return {
             external_id: externalId,
             data: row,
             updated_at: new Date().toISOString()
-          }, {
+          };
+        })
+        .filter(r => r !== null);
+
+      console.log(`DBContext: Prepared ${recordsToUpsert.length} records for upsert`);
+
+      // Batch upsert in chunks of 100 to avoid timeout
+      const BATCH_SIZE = 100;
+      let synced = 0;
+      let errors = 0;
+
+      for (let i = 0; i < recordsToUpsert.length; i += BATCH_SIZE) {
+        const batch = recordsToUpsert.slice(i, i + BATCH_SIZE);
+        console.log(`DBContext: Upserting batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(recordsToUpsert.length / BATCH_SIZE)} (${batch.length} records)`);
+
+        const { data: upsertData, error } = await supabase
+          .from('inscriptions')
+          .upsert(batch, {
             onConflict: 'external_id'
           });
 
         if (error) {
-          console.error(`DBContext: Error upserting row ${externalId}:`, error);
-          errors++;
+          console.error(`DBContext: Error upserting batch:`, error);
+          errors += batch.length;
         } else {
-          synced++;
+          synced += batch.length;
+          console.log(`DBContext: Batch ${Math.floor(i / BATCH_SIZE) + 1} completed successfully`);
         }
       }
 
