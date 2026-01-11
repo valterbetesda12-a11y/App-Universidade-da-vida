@@ -283,35 +283,100 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
     setLoading(true);
 
-    // NEW: Call Vercel API Route to sync Sheets → Supabase
+    // DIRECT SYNC: Fetch from Google Sheets and save to Supabase directly in browser
     try {
-      console.log("DBContext: Chamando API de sincronização...");
+      console.log("DBContext: Sincronizando diretamente do Google Sheets...");
 
-      const response = await fetch('/api/sync-sheets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      // Get the published CSV URL from the edit URL
+      const sheetUrl = db.config.sheetUrl;
+      let csvUrl = sheetUrl;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("DBContext: Erro na API:", errorData);
-        notify('error', 'Erro na sincronização', errorData.error || 'Erro desconhecido');
-      } else {
-        const data = await response.json();
-        console.log("DBContext: Resposta da API:", data);
-        notify('success', 'Sincronização Concluída', `${data?.synced || 0} registros atualizados`);
+      // If it's an edit URL, we need the published CSV URL from app_config
+      if (sheetUrl.includes('/edit')) {
+        const { data: configData } = await supabase
+          .from('app_config')
+          .select('config')
+          .eq('id', 'global')
+          .single();
 
-        // Reload data from Supabase after sync
-        await loadInscriptionsFromSupabase();
-        setLoading(false);
-        return; // Exit early, don't run old CSV sync logic
+        csvUrl = configData?.config?.sheetUrl || sheetData?.config?.sheetUrl || sheetUrl;
       }
+
+      console.log("DBContext: Fetching CSV from:", csvUrl);
+
+      // Fetch CSV
+      const response = await fetch(csvUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Planilha não acessível`);
+      }
+
+      const csvText = await response.text();
+
+      // Check if it's actually CSV
+      if (csvText.includes('<!DOCTYPE') || csvText.includes('<html')) {
+        throw new Error('Planilha não está publicada como CSV');
+      }
+
+      // Parse CSV
+      const lines = csvText.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length === 0) {
+        throw new Error('Planilha vazia');
+      }
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      const data: any[] = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+        const row: any = {};
+        headers.forEach((h, idx) => {
+          row[h] = values[idx] || '';
+        });
+        data.push(row);
+      }
+
+      console.log(`DBContext: Parsed ${data.length} rows`);
+
+      // Find ID column
+      const idColumn = headers.find(h =>
+        ['CPF', 'ID', 'MATRICULA', 'RG', 'DOCUMENTO'].some(k =>
+          h.toUpperCase().includes(k)
+        )
+      ) || headers[0];
+
+      console.log(`DBContext: Using "${idColumn}" as external_id`);
+
+      // Save to Supabase
+      let synced = 0;
+      for (const row of data) {
+        const externalId = String(row[idColumn] || '').trim();
+        if (!externalId) continue;
+
+        const { error } = await supabase
+          .from('inscriptions')
+          .upsert({
+            external_id: externalId,
+            data: row,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'external_id'
+          });
+
+        if (!error) synced++;
+      }
+
+      console.log(`DBContext: Synced ${synced} records to Supabase`);
+      notify('success', 'Sincronização Concluída', `${synced} registros atualizados`);
+
+      // Reload from Supabase
+      await loadInscriptionsFromSupabase();
+      setLoading(false);
+      return;
+
     } catch (e: any) {
-      console.error("DBContext: Exceção ao chamar API:", e);
-      notify('warning', 'Usando sincronização local', 'Tentando método alternativo...');
-      // Fall through to old sync method as backup
+      console.error("DBContext: Direct sync failed:", e);
+      notify('error', 'Erro na sincronização', e.message);
+      setLoading(false);
     }
 
     // FALLBACK: Old CSV sync method (kept as backup)
