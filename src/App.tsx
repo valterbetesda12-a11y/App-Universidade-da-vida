@@ -66,8 +66,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (loggedUser) {
       setCurrentView('inscricoes');
-      // AUTO-LOAD DISABLED: User must click "Sincronizar" button manually
-      // This prevents infinite loading if Supabase is slow or has issues
+      // Load data from Supabase on login
+      loadInscriptionsFromSupabase();
     }
   }, [loggedUser]);
 
