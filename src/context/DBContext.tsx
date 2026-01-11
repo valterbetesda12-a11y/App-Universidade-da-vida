@@ -311,12 +311,20 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         }
       });
 
-      const result = await response.json();
+      let result;
+      const text = await response.text();
+
+      try {
+        result = text ? JSON.parse(text) : {};
+      } catch (parseErr) {
+        console.error("Erro ao parsear JSON:", text);
+        throw new Error(`Resposta inválida do servidor: ${text.substring(0, 50)}...`);
+      }
 
       console.log("Resposta da API:", result);
 
       if (!response.ok) {
-        throw new Error(result.error || `HTTP ${response.status}`);
+        throw new Error(result.error || `Erro HTTP ${response.status}`);
       }
 
       if (result.synced > 0) {
