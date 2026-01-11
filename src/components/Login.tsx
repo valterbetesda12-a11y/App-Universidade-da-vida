@@ -1,42 +1,43 @@
 
 import React, { useState } from 'react';
 import { useDB } from '../context/DBContext';
-import { CheckCircle, X, ArrowRight, Lock, Mail } from 'lucide-react';
+import { CheckCircle, X, ArrowRight, Lock, Mail, RefreshCcw } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const { login, forceSync } = useDB();
+  const { login } = useDB();
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
-  const [showToast, setShowToast] = useState(true);
 
   const [localLoading, setLocalLoading] = useState(false);
+
   const handleLogin = async () => {
     setLocalLoading(true);
     if (await login(user, pass)) {
-      // The App.tsx useEffect will handle the redirection once loggedUser is set
-      console.log("Login success, waiting for context update...");
+      console.log("Login success, checking data load...");
     } else {
       alert("Acesso negado. Usuário ou senha incorretos.");
       setLocalLoading(false);
     }
   };
 
+  const handleForceClearCache = () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    // Use a unique query param to force the browser to bypass any index.html cache
+    window.location.href = window.location.pathname + '?v=' + Date.now();
+  };
+
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center z-[100] bg-[#0f172a] text-slate-200 font-sans">
-      {showToast && (
-        <div className="absolute top-10 flex items-start gap-4 bg-[#1e293b] p-4 rounded-xl border border-emerald-900/50 shadow-2xl animate-in slide-in-from-top-4 fade-in">
-          <div className="bg-emerald-500/10 p-2 rounded-full text-emerald-500">
-            <CheckCircle className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-white">Sistema sincronizado</h4>
-            <p className="text-xs text-slate-400 mt-1">Planilhas Google atualizadas com sucesso.</p>
-          </div>
-          <button onClick={() => setShowToast(false)} className="text-slate-500 hover:text-white ml-4">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      <div className="absolute top-4 right-4 flex items-center gap-2">
+        <button
+          onClick={handleForceClearCache}
+          className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-[10px] font-black uppercase tracking-widest border border-red-500/20 transition-all"
+        >
+          <RefreshCcw className="w-3 h-3" /> Limpar Cache Forçado
+        </button>
+        <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-[10px] font-bold border border-blue-500/10">V1.3.0</span>
+      </div>
 
       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-8">Painel Administrativo</p>
 
