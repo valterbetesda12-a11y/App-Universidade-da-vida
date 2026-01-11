@@ -376,49 +376,81 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           return {
             external_id: externalId,
-            data: row,
-            updated_at: new Date().toISOString()
-          };
-        })
+          })
         .filter(r => r !== null);
 
       console.log(`DBContext: Prepared ${recordsToUpsert.length} records for upsert`);
 
-      // Batch upsert in smaller chunks with delay to avoid rate limiting
-      const BATCH_SIZE = 50; // Reduced from 100
+      // Helper function to upsert with retry
+      const upsertBatchWithRetry = async (batch: any[], batchNum: number, maxRetries = 3) => {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            console.log(`DBContext: Batch ${batchNum}, attempt ${attempt}/${maxRetries}`);
+
+            const { data, error } = await supabase
+              .from('inscriptions')
+              .upsert(batch, {
+                onConflict: 'external_id'
+              });
+
+            if (error) {
+              console.error(`DBContext: Supabase error on batch ${batchNum}:`, error);
+              if (attempt === maxRetries) {
+                throw error;
+              }
+              // Wait before retry with exponential backoff
+              const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+              console.log(`DBContext: Retrying batch ${batchNum} in ${waitTime}ms...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              continue;
+            }
+
+            // Success!
+            console.log(`DBContext: Batch ${batchNum} completed successfully`);
+            return { success: true, count: batch.length };
+
+          } catch (e: any) {
+            console.error(`DBContext: Exception on batch ${batchNum}, attempt ${attempt}:`, e.message);
+
+            if (attempt === maxRetries) {
+              console.error(`DBContext: Batch ${batchNum} failed after ${maxRetries} attempts`);
+              return { success: false, count: batch.length };
+            }
+
+            // Wait before retry with exponential backoff
+            const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+            console.log(`DBContext: Retrying batch ${batchNum} in ${waitTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          }
+        }
+
+        return { success: false, count: batch.length };
+      };
+
+      // Batch upsert with retry logic
+      const BATCH_SIZE = 50;
       let synced = 0;
       let errors = 0;
+      const totalBatches = Math.ceil(recordsToUpsert.length / BATCH_SIZE);
 
       for (let i = 0; i < recordsToUpsert.length; i += BATCH_SIZE) {
         const batch = recordsToUpsert.slice(i, i + BATCH_SIZE);
         const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(recordsToUpsert.length / BATCH_SIZE);
 
-        console.log(`DBContext: Upserting batch ${batchNum}/${totalBatches} (${batch.length} records)`);
+        console.log(`DBContext: Processing batch ${batchNum}/${totalBatches} (${batch.length} records)`);
 
-        try {
-          const { data: upsertData, error } = await supabase
-            .from('inscriptions')
-            .upsert(batch, {
-              onConflict: 'external_id'
-            });
+        const result = await upsertBatchWithRetry(batch, batchNum);
 
-          if (error) {
-            console.error(`DBContext: Error upserting batch ${batchNum}:`, error);
-            errors += batch.length;
-          } else {
-            synced += batch.length;
-            console.log(`DBContext: Batch ${batchNum} completed successfully`);
-          }
-        } catch (e: any) {
-          console.error(`DBContext: Exception upserting batch ${batchNum}:`, e);
-          errors += batch.length;
+        if (result.success) {
+          synced += result.count;
+        } else {
+          errors += result.count;
         }
 
-        // Add delay between batches to avoid rate limiting (except for last batch)
+        // Add delay between batches (except for last batch)
         if (i + BATCH_SIZE < recordsToUpsert.length) {
-          console.log(`DBContext: Waiting 500ms before next batch...`);
-          await new Promise(resolve => setTimeout(resolve, 500));
+          console.log(`DBContext: Waiting 1000ms before next batch...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
 
