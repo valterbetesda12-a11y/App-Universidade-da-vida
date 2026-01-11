@@ -266,6 +266,18 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const inscriptionsData = (data || []).map((row: any) => row.data);
       console.log(`DBContext: Loaded ${inscriptionsData.length} inscriptions from Supabase`);
 
+      // Extract headers from the first record if db.headers is empty
+      if (inscriptionsData.length > 0) {
+        const firstRecord = inscriptionsData[0];
+        const extractedHeaders = Object.keys(firstRecord);
+        console.log("DBContext: Extracted headers from Supabase:", extractedHeaders);
+
+        setDb(prev => ({
+          ...prev,
+          headers: (prev.headers && prev.headers.length > 0) ? prev.headers : extractedHeaders
+        }));
+      }
+
       setInscriptions(inscriptionsData);
       setLoading(false);
     } catch (e: any) {
