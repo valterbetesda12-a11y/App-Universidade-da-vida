@@ -376,7 +376,10 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
           return {
             external_id: externalId,
-          })
+            data: row,
+            updated_at: new Date().toISOString()
+          };
+        })
         .filter(r => r !== null);
 
       console.log(`DBContext: Prepared ${recordsToUpsert.length} records for upsert`);
