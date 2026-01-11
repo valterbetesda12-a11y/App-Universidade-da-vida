@@ -19,6 +19,7 @@ interface DBContextType {
   deleteUser: (id: string) => Promise<void>;
   fetchLogs: () => Promise<AuditLog[]>;
   notify: (type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) => void;
+  loadInscriptionsFromSupabase: () => Promise<void>;
 }
 
 const DBContext = createContext<DBContextType | undefined>(undefined);
@@ -236,6 +237,41 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
   };
 
+  // NEW: Load inscriptions from Supabase
+  const loadInscriptionsFromSupabase = async () => {
+    if (!loggedUser) return;
+
+    setLoading(true);
+    try {
+      console.log("DBContext: Loading inscriptions from Supabase...");
+
+      const { data, error } = await supabase
+        .from('inscriptions')
+        .select('data');
+
+      if (error) {
+        console.error("DBContext: Error loading inscriptions:", error);
+        notify('error', 'Erro ao carregar dados', error.message);
+        return;
+      }
+
+      // Extract data from JSONB column
+      const inscriptionsData = (data || []).map(row => row.data);
+
+      console.log(`DBContext: Loaded ${inscriptionsData.length} inscriptions from Supabase`);
+      setInscriptions(inscriptionsData);
+
+      if (inscriptionsData.length > 0) {
+        notify('success', 'Dados Carregados', `${inscriptionsData.length} registros`);
+      }
+    } catch (e: any) {
+      console.error("DBContext: Exception loading inscriptions:", e);
+      notify('error', 'Erro ao carregar dados', e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const forceSync = async () => {
     if (!db.config.sheetUrl) {
       alert("Por favor, configure a URL da planilha Google Sheets primeiro.");
@@ -243,6 +279,39 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
 
     setLoading(true);
+
+    // NEW: Call Vercel API Route to sync Sheets → Supabase
+    try {
+      console.log("DBContext: Chamando API de sincronização...");
+
+      const response = await fetch('/api/sync-sheets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("DBContext: Erro na API:", errorData);
+        notify('error', 'Erro na sincronização', errorData.error || 'Erro desconhecido');
+      } else {
+        const data = await response.json();
+        console.log("DBContext: Resposta da API:", data);
+        notify('success', 'Sincronização Concluída', `${data?.synced || 0} registros atualizados`);
+
+        // Reload data from Supabase after sync
+        await loadInscriptionsFromSupabase();
+        setLoading(false);
+        return; // Exit early, don't run old CSV sync logic
+      }
+    } catch (e: any) {
+      console.error("DBContext: Exceção ao chamar API:", e);
+      notify('warning', 'Usando sincronização local', 'Tentando método alternativo...');
+      // Fall through to old sync method as backup
+    }
+
+    // FALLBACK: Old CSV sync method (kept as backup)
     try {
       const match = db.config.sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
       const sheetId = match ? match[1] : null;
@@ -477,13 +546,30 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
   };
   const deleteUser = async (id: string) => {
-    const { error } = await supabase.from('profiles').delete().eq('id', id);
-    if (error) {
-      notify('error', 'Erro ao excluir no Supabase', error.message);
-      return;
+    try {
+      setLoading(true);
+
+      // Usar função RPC que deleta de auth.users E profiles
+      const { data, error } = await supabase.rpc('delete_user_admin', {
+        user_id: id
+      });
+
+      if (error) {
+        notify('error', 'Erro ao excluir usuário', error.message);
+        return;
+      }
+
+      // Atualizar estado local
+      setDb(prev => ({ ...prev, users: prev.users.filter(u => u.id !== id) }));
+
+      notify('success', 'Usuário Excluído', 'O usuário foi removido completamente do sistema.');
+    } catch (e: any) {
+      notify('error', 'Erro ao excluir usuário', e.message);
+    } finally {
+      setLoading(false);
     }
-    setDb(prev => ({ ...prev, users: prev.users.filter(u => u.id !== id) }));
   };
+
 
   const fetchLogs = async (): Promise<AuditLog[]> => {
     return db.auditLogs || [];
@@ -501,7 +587,8 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     <DBContext.Provider value={{
       db, inscriptions, loading, isLoadingAuth, loggedUser,
       login, logout, updateDB: (d) => setDb(prev => ({ ...prev, ...d })),
-      forceSync, saveTicket, sendToCloud, updateLocalData, batchUpdateLocalData, updateUser, createNewUser, deleteUser, fetchLogs, notify
+      forceSync, saveTicket, sendToCloud, updateLocalData, batchUpdateLocalData, updateUser, createNewUser, deleteUser, fetchLogs, notify,
+      loadInscriptionsFromSupabase
     }}>
       {children}
       {/* Toast Notification */}

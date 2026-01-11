@@ -20,7 +20,7 @@ const isLight = (color: string) => {
 };
 
 const App: React.FC = () => {
-  const { loggedUser, db, loading, isLoadingAuth, forceSync, inscriptions } = useDB();
+  const { loggedUser, db, loading, isLoadingAuth, forceSync, inscriptions, loadInscriptionsFromSupabase } = useDB();
   const [currentView, setCurrentView] = useState<ViewState>('inscricoes');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -66,9 +66,9 @@ const App: React.FC = () => {
   useEffect(() => {
     if (loggedUser) {
       setCurrentView('inscricoes');
-      // Auto-sync on page refresh if we have a user but no data
-      if (inscriptions.length === 0 && db.config.sheetUrl && !loading) {
-        forceSync();
+      // NEW: Load data from Supabase instead of forcing sync
+      if (inscriptions.length === 0 && !loading) {
+        loadInscriptionsFromSupabase();
       }
     }
   }, [loggedUser]);
