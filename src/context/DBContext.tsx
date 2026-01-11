@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { DBData, User, Ticket, AuditLog } from '../types';
 import { parseCSV } from '../utils/csvParser';
 import { supabase } from '../lib/supabase';
+import { directBrowserSync } from '../utils/syncUtils';
 
 interface DBContextType {
   db: DBData; inscriptions: any[]; loading: boolean;
@@ -301,38 +302,59 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setLoading(true);
 
     try {
-      console.log("=== CHAMANDO API DE SINCRONIZAÇÃO ===");
+      console.log("=== INICIANDO SINCRONIZAÇÃO (V1.3.3) ===");
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const sheetUrl = db.sheetUrl;
 
-      // Call Vercel API to sync
-      const response = await fetch('/api/sync-sheets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
+      if (isLocal) {
+        console.log("DBContext: Ambiente local detectado - usando Sincronização Direta");
+        const result = await directBrowserSync(sheetUrl);
+        if (result.success) {
+          notify('success', 'Sincronização Local Concluída', `${result.synced} registros sincronizados`);
+          await loadInscriptionsFromSupabase();
+        } else {
+          throw new Error(result.message || 'Erro na sincronização local');
         }
-      });
-
-      let result;
-      const text = await response.text();
-
-      try {
-        result = text ? JSON.parse(text) : {};
-      } catch (parseErr) {
-        console.error("Erro ao parsear JSON:", text);
-        throw new Error(`Resposta inválida do servidor: ${text.substring(0, 50)}...`);
-      }
-
-      console.log("Resposta da API:", result);
-
-      if (!response.ok) {
-        throw new Error(result.error || `Erro HTTP ${response.status}`);
-      }
-
-      if (result.synced > 0) {
-        notify('success', 'Sincronização Concluída', `${result.synced} registros sincronizados`);
-        // Reload from Supabase
-        await loadInscriptionsFromSupabase();
       } else {
-        notify('warning', 'Nenhum registro sincronizado', result.message || 'Verifique os logs');
+        // Call Vercel API to sync in production
+        console.log("DBContext: Produção detectada - chamando API Vercel");
+        const response = await fetch('/api/sync-sheets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        let result;
+        const text = await response.text();
+
+        try {
+          result = text ? JSON.parse(text) : {};
+        } catch (parseErr) {
+          // Fallback to direct sync if API fails
+          console.warn("Vercel API falhou ou enviou resposta inválida - tentando fallback direto...");
+          const fallback = await directBrowserSync(sheetUrl);
+          if (fallback.success) {
+            notify('success', 'Sincronização Concluída (Backup)', `${fallback.synced} registros sincronizados`);
+            await loadInscriptionsFromSupabase();
+            setLoading(false);
+            return;
+          }
+          throw new Error(`Resposta inválida do servidor: ${text.substring(0, 50)}...`);
+        }
+
+        console.log("Resposta da API:", result);
+
+        if (!response.ok) {
+          throw new Error(result.error || `Erro HTTP ${response.status}`);
+        }
+
+        if (result.synced >= 0) {
+          notify('success', 'Sincronização Concluída', `${result.synced} registros sincronizados`);
+          await loadInscriptionsFromSupabase();
+        } else {
+          notify('warning', 'Nenhum registro sincronizado', result.message || 'Verifique os logs');
+        }
       }
 
       console.log("=== SINCRONIZAÇÃO CONCLUÍDA ===");
