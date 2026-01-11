@@ -299,7 +299,7 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           .eq('id', 'global')
           .single();
 
-        csvUrl = configData?.config?.sheetUrl || sheetData?.config?.sheetUrl || sheetUrl;
+        csvUrl = configData?.config?.sheetUrl || sheetUrl;
       }
 
       console.log("DBContext: Fetching CSV from:", csvUrl);
