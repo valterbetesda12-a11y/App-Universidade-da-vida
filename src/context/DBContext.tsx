@@ -431,7 +431,7 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
 
       // Batch upsert with retry logic
-      const BATCH_SIZE = 50;
+      const BATCH_SIZE = 10; // Drastically reduced to handle large payloads
       let synced = 0;
       let errors = 0;
       const totalBatches = Math.ceil(recordsToUpsert.length / BATCH_SIZE);
@@ -450,10 +450,10 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           errors += result.count;
         }
 
-        // Add delay between batches (except for last batch)
+        // Add longer delay between batches
         if (i + BATCH_SIZE < recordsToUpsert.length) {
-          console.log(`DBContext: Waiting 1000ms before next batch...`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          console.log(`DBContext: Waiting 2000ms before next batch...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
 
