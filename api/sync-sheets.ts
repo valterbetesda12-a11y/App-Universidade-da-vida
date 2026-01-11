@@ -119,10 +119,8 @@ export default async function handler(req: any, res: any) {
 
         console.log(`🔑 Usando "${idColumn}" como identificador único`);
 
-        // Fazer upsert dos dados no Supabase
-        let syncedCount = 0;
-        let errorCount = 0;
-
+        // Preparar registros para batch upsert
+        const records = [];
         for (const row of data) {
             const externalId = String(row[idColumn] || '').trim();
 
@@ -131,21 +129,44 @@ export default async function handler(req: any, res: any) {
                 continue;
             }
 
+            records.push({
+                external_id: externalId,
+                data: row,
+                updated_at: new Date().toISOString()
+            });
+        }
+
+        console.log(`📦 Preparados ${records.length} registros para upsert`);
+
+        // Fazer upsert em batches de 50
+        const BATCH_SIZE = 50;
+        let syncedCount = 0;
+        let errorCount = 0;
+
+        for (let i = 0; i < records.length; i += BATCH_SIZE) {
+            const batch = records.slice(i, i + BATCH_SIZE);
+            const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+            const totalBatches = Math.ceil(records.length / BATCH_SIZE);
+
+            console.log(`📦 Upserting batch ${batchNum}/${totalBatches} (${batch.length} records)`);
+
             const { error } = await supabase
                 .from('inscriptions')
-                .upsert({
-                    external_id: externalId,
-                    data: row,
-                    updated_at: new Date().toISOString()
-                }, {
+                .upsert(batch, {
                     onConflict: 'external_id'
                 });
 
             if (error) {
-                console.error(`❌ Erro ao fazer upsert de ${externalId}:`, error);
-                errorCount++;
+                console.error(`❌ Erro no batch ${batchNum}:`, error);
+                errorCount += batch.length;
             } else {
-                syncedCount++;
+                syncedCount += batch.length;
+                console.log(`✅ Batch ${batchNum} completo`);
+            }
+
+            // Pequeno delay entre batches
+            if (i + BATCH_SIZE < records.length) {
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
         }
 
