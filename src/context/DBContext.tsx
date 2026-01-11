@@ -241,33 +241,36 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const loadInscriptionsFromSupabase = async () => {
     if (!loggedUser) return;
 
-    setLoading(true);
     try {
       console.log("DBContext: Loading inscriptions from Supabase...");
+      setLoading(true);
 
-      const { data, error } = await supabase
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout')), 10000)
+      );
+
+      const loadPromise = supabase
         .from('inscriptions')
         .select('data');
 
+      const { data, error } = await Promise.race([loadPromise, timeoutPromise]) as any;
+
       if (error) {
-        console.error("DBContext: Error loading inscriptions:", error);
-        notify('error', 'Erro ao carregar dados', error.message);
+        console.error("DBContext: Error loading from Supabase:", error);
+        notify('warning', 'Aviso', 'Não foi possível carregar dados do servidor');
+        setLoading(false);
         return;
       }
 
-      // Extract data from JSONB column
-      const inscriptionsData = (data || []).map(row => row.data);
-
+      const inscriptionsData = (data || []).map((row: any) => row.data);
       console.log(`DBContext: Loaded ${inscriptionsData.length} inscriptions from Supabase`);
-      setInscriptions(inscriptionsData);
 
-      if (inscriptionsData.length > 0) {
-        notify('success', 'Dados Carregados', `${inscriptionsData.length} registros`);
-      }
+      setInscriptions(inscriptionsData);
+      setLoading(false);
     } catch (e: any) {
-      console.error("DBContext: Exception loading inscriptions:", e);
-      notify('error', 'Erro ao carregar dados', e.message);
-    } finally {
+      console.error("DBContext: Exception loading from Supabase:", e);
+      notify('info', 'Modo Offline', 'Usando dados locais');
       setLoading(false);
     }
   };
