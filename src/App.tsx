@@ -20,7 +20,16 @@ const isLight = (color: string) => {
 };
 
 const App: React.FC = () => {
-  const { loggedUser, db, loading, isLoadingAuth, forceSync, inscriptions, loadInscriptionsFromSupabase } = useDB();
+  const { loggedUser, db, loading, isLoadingAuth, forceSync, inscriptions, loadInscriptionsFromSupabase, logout, updateDB, fetchLogs, notify } = useDB();
+
+  useEffect(() => {
+    // VISUAL CONFIRMATION OF DEPLOYMENT
+    console.log("!!! VERSÃO 1.2.0 ATIVA - CACHE LIMPADO !!!");
+    if (window.location.hostname !== 'localhost') {
+      // Small visual indicator instead of intrusive alert? No, alert is better for debugging cache
+      // alert("SISTEMA NEXUS ATUALIZADO (1.2.0)"); 
+    }
+  }, []);
   const [currentView, setCurrentView] = useState<ViewState>('inscricoes');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
