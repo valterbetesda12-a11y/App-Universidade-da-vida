@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useDB } from './context/DBContext';
+import { useDB } from './context/useDB';
 import { ViewState } from './types';
 import { Login } from './components/Login';
 import { Sidebar } from './components/Sidebar';
@@ -24,7 +24,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     // VISUAL CONFIRMATION OF DEPLOYMENT
-    console.log("%c !!! SISTEMA NEXUS ATUALIZADO V1.2.1 - CACHE LIMPADO !!! ", "background: #22c55e; color: white; font-weight: bold; padding: 4px; border-radius: 4px;");
+    console.log("%c !!! SISTEMA NEXUS ATUALIZADO V1.3.3 - CACHE LIMPADO !!! ", "background: #2563eb; color: white; font-weight: bold; padding: 4px; border-radius: 4px;");
   }, []);
   const [currentView, setCurrentView] = useState<ViewState>('inscricoes');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

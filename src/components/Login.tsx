@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { useDB } from '../context/DBContext';
+import { useDB } from '../context/useDB';
 import { CheckCircle, X, ArrowRight, Lock, Mail, RefreshCcw } from 'lucide-react';
 
 export const Login: React.FC = () => {
@@ -36,7 +36,7 @@ export const Login: React.FC = () => {
         >
           <RefreshCcw className="w-3 h-3" /> Limpar Cache Forçado
         </button>
-        <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-[10px] font-bold border border-blue-500/10">V1.3.0</span>
+        <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-[10px] font-bold border border-blue-500/10">V1.3.3</span>
       </div>
 
       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-8">Painel Administrativo</p>

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useDB } from '../context/DBContext';
+import { useDB } from '../context/useDB';
 import { ViewState } from '../types';
 import { LogOut, Hexagon, X } from 'lucide-react';
 

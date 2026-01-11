@@ -90,3 +90,55 @@ export async function directBrowserSync(sheetUrl: string): Promise<SyncResult> {
         };
     }
 }
+
+/**
+ * Envia uma atualização de linha para o Google Sheets via Apps Script
+ */
+export async function pushDataToGoogleSheet(scriptUrl: string, rowData: any): Promise<boolean> {
+    if (!scriptUrl) return false;
+
+    try {
+        console.log("Pushing update to Google Sheets...");
+        const response = await fetch(scriptUrl, {
+            method: 'POST',
+            mode: 'no-cors', // Apps Script requires no-cors for simple triggers usually, or careful CORS setup
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'updateRow',
+                data: rowData
+            })
+        });
+        return true; // With no-cors we can't see the response but can assume it was sent
+    } catch (error) {
+        console.error("Error pushing to Google Sheets:", error);
+        return false;
+    }
+}
+
+/**
+ * Envia um novo usuário para o Google Sheets via Apps Script
+ */
+export async function pushUserToGoogleSheet(scriptUrl: string, userData: any): Promise<boolean> {
+    if (!scriptUrl) return false;
+
+    try {
+        console.log("Pushing new user to Google Sheets...");
+        await fetch(scriptUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'addUser',
+                data: userData
+            })
+        });
+        return true;
+    } catch (error) {
+        console.error("Error pushing user to Google Sheets:", error);
+        return false;
+    }
+}

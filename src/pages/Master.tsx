@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { useDB } from '../context/DBContext';
+import { useDB } from '../context/useDB';
 import { User } from '../types';
 import {
     Settings, Layout, Bell, Shield, Globe, Database,

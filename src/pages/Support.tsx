@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { useDB } from '../context/DBContext';
+import { useDB } from '../context/useDB';
 import { Ticket } from '../types';
 import { Send, Search, ChevronRight, HelpCircle, CheckCircle, ArrowLeft, Plus, XCircle, Clock, AlertCircle } from 'lucide-react';
 

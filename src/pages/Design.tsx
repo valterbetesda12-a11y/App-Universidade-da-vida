@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useDB } from '../context/DBContext';
+import { useDB } from '../context/useDB';
 import { Layout, Type, Palette, MousePointerClick, Check, Moon, Sun, Monitor, Smartphone, LayoutGrid } from 'lucide-react';
 import { ICON_PATHS } from '../utils/iconPaths';
 

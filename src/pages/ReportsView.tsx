@@ -1,10 +1,10 @@
 
 import React, { useState, useMemo, useRef } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { Move, Settings, Trash2, PlusCircle, FileJson, Download, Loader2 } from 'lucide-react';
-import { useDB } from '../context/DBContext';
+import { useDB } from '../context/useDB';
 import { ReportWidget, User } from '../types/app'; // Use Types/App types for local widgets
 import html2canvas from 'html2canvas';
 
@@ -23,7 +23,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ isMasterMode, user }) 
   // --- CÁLCULO DE DADOS REAIS ---
   const stats = useMemo(() => {
     const total = inscriptions.length;
-    
+
     // Tenta encontrar colunas relevantes
     const statusCol = db.headers.find(h => ['STATUS', 'SITUACAO', 'ESTADO'].some(k => h.toUpperCase().includes(k))) || db.headers[db.headers.length - 1];
     const dateCol = db.headers.find(h => ['DATA', 'CRIADO', 'EMISSAO', 'CARIMBO'].some(k => h.toUpperCase().includes(k))) || db.headers[0];
@@ -31,26 +31,26 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ isMasterMode, user }) 
     // Dados para Pizza (Status)
     const statusCounts: Record<string, number> = {};
     inscriptions.forEach(row => {
-        const val = String(row[statusCol] || 'Indefinido').trim().toUpperCase();
-        statusCounts[val] = (statusCounts[val] || 0) + 1;
+      const val = String(row[statusCol] || 'Indefinido').trim().toUpperCase();
+      statusCounts[val] = (statusCounts[val] || 0) + 1;
     });
     const pieData = Object.entries(statusCounts)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a,b) => b.value - a.value)
-        .slice(0, 6); // Top 6
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6); // Top 6
 
     // Dados para Barra (Evolução Temporal - Simplificada por índice/ordem se data falhar)
     // Tenta agrupar por mês se possível, senão pega chunks
     const barData: any[] = [];
     if (total > 0) {
-        // Simulação de distribuição se não houver data clara, ou agrupamento simples
-        const chunkSize = Math.ceil(total / 5);
-        for(let i=0; i<5; i++) {
-            barData.push({
-                name: `Lote ${i+1}`,
-                value: Math.min(chunkSize, Math.max(0, total - (i*chunkSize)))
-            });
-        }
+      // Simulação de distribuição se não houver data clara, ou agrupamento simples
+      const chunkSize = Math.ceil(total / 5);
+      for (let i = 0; i < 5; i++) {
+        barData.push({
+          name: `Lote ${i + 1}`,
+          value: Math.min(chunkSize, Math.max(0, total - (i * chunkSize)))
+        });
+      }
     }
 
     return { total, pieData, barData };
@@ -67,13 +67,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ isMasterMode, user }) 
   const moveWidget = (index: number, direction: 'left' | 'right') => {
     if (!isMasterMode) return;
     setWidgets(prev => {
-        const next = [...prev];
-        const target = direction === 'left' ? index - 1 : index + 1;
-        if (target >= 0 && target < next.length) {
-          [next[index], next[target]] = [next[target], next[index]];
-          return next;
-        }
-        return prev;
+      const next = [...prev];
+      const target = direction === 'left' ? index - 1 : index + 1;
+      if (target >= 0 && target < next.length) {
+        [next[index], next[target]] = [next[target], next[index]];
+        return next;
+      }
+      return prev;
     });
   };
 
@@ -97,35 +97,35 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ isMasterMode, user }) 
   };
 
   const handleExportImage = async () => {
-      if (dashboardRef.current) {
-          setIsExporting(true);
-          try {
-              const canvas = await html2canvas(dashboardRef.current, {
-                  backgroundColor: '#0f172a', // Mantém o fundo dark
-                  scale: 2 // Alta resolução
-              });
-              const link = document.createElement('a');
-              link.download = `Dashboard_Nexus_${new Date().toISOString().slice(0,10)}.png`;
-              link.href = canvas.toDataURL();
-              link.click();
-          } catch (e) {
-              console.error("Erro na exportação", e);
-              alert("Erro ao exportar imagem.");
-          } finally {
-              setIsExporting(false);
-          }
+    if (dashboardRef.current) {
+      setIsExporting(true);
+      try {
+        const canvas = await html2canvas(dashboardRef.current, {
+          backgroundColor: '#0f172a', // Mantém o fundo dark
+          scale: 2 // Alta resolução
+        });
+        const link = document.createElement('a');
+        link.download = `Dashboard_Nexus_${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+      } catch (e) {
+        console.error("Erro na exportação", e);
+        alert("Erro ao exportar imagem.");
+      } finally {
+        setIsExporting(false);
       }
+    }
   };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
-      
+
       <div className="flex justify-between items-end">
         <div>
           <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">Dashboard Executivo</h3>
           <p className="text-slate-400 text-xs mt-1">Dados em tempo real da base sincronizada</p>
         </div>
-        
+
         <div className="flex gap-3">
           {isMasterMode && (
             <button onClick={addWidget} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all shadow-lg">
@@ -133,15 +133,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ isMasterMode, user }) 
             </button>
           )}
           <button onClick={handleExportImage} disabled={isExporting} className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase border border-white/20 transition-all disabled:opacity-50">
-            {isExporting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Download className="w-4 h-4" />} Exportar PNG
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Exportar PNG
           </button>
         </div>
       </div>
 
       <div ref={dashboardRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-4 bg-[#0f172a]">
         {widgets.map((widget, index) => (
-          <div 
-            key={widget.id} 
+          <div
+            key={widget.id}
             className={`relative group rounded-3xl p-6 border transition-all duration-300 flex flex-col overflow-hidden ${isMasterMode ? 'border-dashed border-blue-500/50 bg-blue-500/5' : 'border-white/10 bg-white/5 backdrop-blur-xl shadow-xl'}`}
             style={{ gridColumn: `span ${widget.gridSpan} / span ${widget.gridSpan}`, zIndex: 10 }}
           >
@@ -172,7 +172,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ isMasterMode, user }) 
                   <BarChart data={stats.barData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
                     <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }} itemStyle={{ color: '#fff', fontSize: '12px' }} cursor={{fill: 'rgba(255,255,255,0.05)'}} />
+                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px' }} itemStyle={{ color: '#fff', fontSize: '12px' }} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
                     <Bar dataKey="value" fill={widget.color} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

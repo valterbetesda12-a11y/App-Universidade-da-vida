@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { DBData, User, Ticket, AuditLog } from '../types';
 import { parseCSV } from '../utils/csvParser';
 import { supabase } from '../lib/supabase';
-import { directBrowserSync } from '../utils/syncUtils';
+import { directBrowserSync, pushDataToGoogleSheet, pushUserToGoogleSheet } from '../utils/syncUtils';
 
 interface DBContextType {
   db: DBData; inscriptions: any[]; loading: boolean;
@@ -23,7 +23,7 @@ interface DBContextType {
   loadInscriptionsFromSupabase: () => Promise<void>;
 }
 
-const DBContext = createContext<DBContextType | undefined>(undefined);
+export const DBContext = createContext<DBContextType | undefined>(undefined);
 
 const defaultState: DBData = {
   users: [
@@ -401,7 +401,14 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setInscriptions(prev => prev.map(row => {
       const idCol = db.headers[0] || Object.keys(row)[0];
       if (String(row[idCol]) === String(id)) {
-        return { ...row, [field]: value };
+        const updatedRow = { ...row, [field]: value };
+
+        // PUSH TO GOOGLE SHEETS
+        if (db.config.scriptUrl) {
+          pushDataToGoogleSheet(db.config.scriptUrl, updatedRow).catch(e => console.error("Sheet sync error:", e));
+        }
+
+        return updatedRow;
       }
       return row;
     }));
@@ -411,7 +418,14 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setInscriptions(prev => prev.map(row => {
       const idCol = db.headers[0] || Object.keys(row)[0];
       if (ids.includes(String(row[idCol]))) {
-        return { ...row, ...updates };
+        const updatedRow = { ...row, ...updates };
+
+        // PUSH TO GOOGLE SHEETS
+        if (db.config.scriptUrl) {
+          pushDataToGoogleSheet(db.config.scriptUrl, updatedRow).catch(e => console.error("Sheet sync error:", e));
+        }
+
+        return updatedRow;
       }
       return row;
     }));
@@ -479,6 +493,12 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
 
       setDb(prev => ({ ...prev, users: [...prev.users, newUser] }));
+
+      // PUSH USER TO GOOGLE SHEETS
+      if (db.config.scriptUrl) {
+        pushUserToGoogleSheet(db.config.scriptUrl, newUser).catch(e => console.error("User sheet sync error:", e));
+      }
+
       notify('success', 'Usuário Criado', `O acesso para ${u.name} foi gerado.`);
       return true;
     } catch (e: any) {
@@ -551,8 +571,5 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   );
 };
 
-export const useDB = () => {
-  const c = useContext(DBContext);
-  if (!c) throw new Error("useDB error");
-  return c;
-};
+
+// Hook useDB movido para arquivo separado para compatibilidade com Vite Fast Refresh
