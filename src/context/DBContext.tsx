@@ -384,27 +384,41 @@ export const DBProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       console.log(`DBContext: Prepared ${recordsToUpsert.length} records for upsert`);
 
-      // Batch upsert in chunks of 100 to avoid timeout
-      const BATCH_SIZE = 100;
+      // Batch upsert in smaller chunks with delay to avoid rate limiting
+      const BATCH_SIZE = 50; // Reduced from 100
       let synced = 0;
       let errors = 0;
 
       for (let i = 0; i < recordsToUpsert.length; i += BATCH_SIZE) {
         const batch = recordsToUpsert.slice(i, i + BATCH_SIZE);
-        console.log(`DBContext: Upserting batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(recordsToUpsert.length / BATCH_SIZE)} (${batch.length} records)`);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(recordsToUpsert.length / BATCH_SIZE);
 
-        const { data: upsertData, error } = await supabase
-          .from('inscriptions')
-          .upsert(batch, {
-            onConflict: 'external_id'
-          });
+        console.log(`DBContext: Upserting batch ${batchNum}/${totalBatches} (${batch.length} records)`);
 
-        if (error) {
-          console.error(`DBContext: Error upserting batch:`, error);
+        try {
+          const { data: upsertData, error } = await supabase
+            .from('inscriptions')
+            .upsert(batch, {
+              onConflict: 'external_id'
+            });
+
+          if (error) {
+            console.error(`DBContext: Error upserting batch ${batchNum}:`, error);
+            errors += batch.length;
+          } else {
+            synced += batch.length;
+            console.log(`DBContext: Batch ${batchNum} completed successfully`);
+          }
+        } catch (e: any) {
+          console.error(`DBContext: Exception upserting batch ${batchNum}:`, e);
           errors += batch.length;
-        } else {
-          synced += batch.length;
-          console.log(`DBContext: Batch ${Math.floor(i / BATCH_SIZE) + 1} completed successfully`);
+        }
+
+        // Add delay between batches to avoid rate limiting (except for last batch)
+        if (i + BATCH_SIZE < recordsToUpsert.length) {
+          console.log(`DBContext: Waiting 500ms before next batch...`);
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
 
