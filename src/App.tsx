@@ -66,11 +66,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (loggedUser) {
       setCurrentView('inscricoes');
-      // Load data from Supabase on login
-      // This won't cause infinite loading because loadInscriptionsFromSupabase has timeout
-      if (inscriptions.length === 0 && !loading) {
-        loadInscriptionsFromSupabase();
-      }
+      // AUTO-LOAD DISABLED: User must click "Sincronizar" button manually
+      // This prevents infinite loading if Supabase is slow or has issues
     }
   }, [loggedUser]);
 
